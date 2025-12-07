@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>نویسو - دفترهای من</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body data-theme="light">
+    <div class="app-container">
+        {% set active_page = 'notebooks' %}
+        {% include 'components/sidebar.html' %}
+
+        <main class="main-content-wrapper">
+            <div class="content-container">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">دفترهای من</h1>
+                        <p class="page-subtitle">دفترهای درسی خود را مدیریت کنید</p>
+                    </div>
+                    <button class="button-primary" id="open-modal-btn">دفتر جدید +</button>
+                </div>
+                <div class="notebooks-grid" id="notebooks-grid"></div>
+            </div>
+        </main>
+    </div>
+
+    {% include 'components/mobile_nav.html' %}
+
+    <div class="modal-overlay" id="add-notebook-modal">
+        <div class="modal-content">
+            <button class="modal-close" id="close-modal-btn">&times;</button>
+            <div class="modal-header">ساخت دفتر جدید</div>
+            <form id="add-notebook-form">
+                <div class="form-group">
+                    <label for="new-notebook-name" class="form-label">نام دفتر</label>
+                    <input type="text" id="new-notebook-name" class="form-input" placeholder="مثال: ریاضی ۱" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="button-secondary" id="cancel-modal-btn">انصراف</button>
+                    <button type="submit" class="button-primary">ساختن</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script>
+        // No changes needed in JS for this part
+        document.addEventListener('DOMContentLoaded', async function() {
+            setupSidebarToggle();
+            setupThemeSwitcher();
+            setupModal();
+            await loadNotebooks();
+        });
+
+        // ... all other JS functions remain the same ...
+        let notebooks = [];
+
+        async function loadNotebooks() {
+            const grid = document.getElementById('notebooks-grid');
+            showLoading(grid);
+
+            try {
+                notebooks = await notebooksAPI.getAll();
+                renderNotebooks();
+            } catch (error) {
+                showError(grid, 'خطا در بارگذاری دفترها');
+            }
+        }
+
+        function renderNotebooks() {
+            const grid = document.getElementById('notebooks-grid');
+            if (!grid) return;
+
+            if (notebooks.length === 0) {
+                grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">هنوز دفتری ایجاد نکرده‌اید. روی "دفتر جدید +" کلیک کنید.</div>';
+                return;
+            }
+
+            grid.innerHTML = notebooks.map(notebook => `
+                <div class="notebook-card" onclick="openNotebook(${notebook.id})">
+                    <div class="notebook-actions-menu">
+                        <button class="notebook-actions-toggle" onclick="toggleNotebookMenu(event, ${notebook.id})">
+                            <svg fill="currentColor" viewBox="0 0 24 24" width="24" height="24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"></path></svg>
+                        </button>
+                        <div class="notebook-actions-dropdown" id="menu-${notebook.id}">
+                            <a href="#" onclick="editNotebookName(event, ${notebook.id})">اصلاح اسم دفتر</a>
+                            <a href="#" onclick="deleteNotebook(event, ${notebook.id})">حذف</a>
+                        </div>
+                    </div>
+                    <div class="notebook-card-header">
+                        <div class="notebook-card-icon">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="48" height="48"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 18.25V5.75C3 4.7835 4.02944 4 5.25 4H18.75C19.9706 4 21 4.7835 21 5.75V18.25C21 19.2165 19.9706 20 18.75 20H5.25C4.02944 20 3 19.2165 3 18.25z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4V20"></path></svg>
+                        </div>
+                    </div>
+                    <div class="notebook-card-body">
+                        <div class="notebook-card-title">${notebook.title}</div>
+                        <div class="notebook-card-meta">
+                            <span>${notebook.notes_count || 0} جزوه</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openNotebook(notebookId) { window.location.href = `/notes?notebook_id=${notebookId}`; }
+        function toggleNotebookMenu(event, notebookId) {
+            event.stopPropagation();
+            document.querySelectorAll('.notebook-actions-dropdown.active').forEach(menu => {
+                if (menu.id !== `menu-${notebookId}`) menu.classList.remove('active');
+            });
+            document.getElementById(`menu-${notebookId}`)?.classList.toggle('active');
+        }
+        function closeAllNotebookMenus() { document.querySelectorAll('.notebook-actions-dropdown').forEach(menu => menu.classList.remove('active')); }
+        async function editNotebookName(event, notebookId) {
+            event.stopPropagation();
+            closeAllNotebookMenus();
+            const notebook = notebooks.find(n => n.id === notebookId);
+            const newName = prompt('نام جدید دفتر:', notebook.title);
+            if (newName && newName.trim() && newName.trim() !== notebook.title) {
+                try {
+                    await notebooksAPI.update(notebookId, newName.trim());
+                    showToast('دفتر با موفقیت ویرایش شد', 'success');
+                    await loadNotebooks();
+                } catch (error) { showToast('خطا در ویرایش دفتر', 'error'); }
+            }
+        }
+        async function deleteNotebook(event, notebookId) {
+            event.stopPropagation();
+            closeAllNotebookMenus();
+            if (confirm('آیا از حذف این دفتر و تمام جزوه‌های آن مطمئن هستید؟')) {
+                try {
+                    await notebooksAPI.delete(notebookId);
+                    showToast('دفتر با موفقیت حذف شد', 'success');
+                    await loadNotebooks();
+                } catch (error) { showToast('خطا در حذف دفتر', 'error'); }
+            }
+        }
+        function setupModal() {
+            const modal = document.getElementById('add-notebook-modal');
+            const openBtn = document.getElementById('open-modal-btn');
+            const closeBtn = document.getElementById('close-modal-btn');
+            const cancelBtn = document.getElementById('cancel-modal-btn');
+            const form = document.getElementById('add-notebook-form');
+            openBtn?.addEventListener('click', () => modal.classList.add('active'));
+            closeBtn?.addEventListener('click', () => modal.classList.remove('active'));
+            cancelBtn?.addEventListener('click', () => modal.classList.remove('active'));
+            form?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const input = document.getElementById('new-notebook-name');
+                const title = input.value.trim();
+                if (!title) return;
+                const submitBtn = form.querySelector('button[type="submit"]');
+                submitBtn.disabled = true;
+                try {
+                    await notebooksAPI.create(title);
+                    showToast('دفتر با موفقیت ایجاد شد', 'success');
+                    modal.classList.remove('active');
+                    input.value = '';
+                    await loadNotebooks();
+                } catch (error) { showToast('خطا در ایجاد دفتر', 'error'); } finally { submitBtn.disabled = false; }
+            });
+            modal?.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+        }
+        document.body.addEventListener('click', closeAllNotebookMenus);
+    </script>
+</body>
+</html>

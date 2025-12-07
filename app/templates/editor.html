@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>نویسو - ویرایشگر جزوه</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body data-theme="light">
+    <div class="app-container">
+        {% set active_page = 'notebooks' %}
+        {% include 'components/sidebar.html' %}
+
+        <main class="main-content-wrapper">
+            <div class="note-container">
+                <div class="notes-header" id="viewer-header-controls">
+                    <button class="back-button" id="back-to-notes-btn">→ بازگشت</button>
+
+                    <div class="desktop-actions" style="display: flex; gap: 12px;">
+                        <button class="button-secondary" id="edit-note-btn">ویرایش جزوه</button>
+                        <button class="export-button" id="export-note-btn">خروجی جزوه</button>
+                    </div>
+
+                    <div class="mobile-actions-menu">
+                        <button class="actions-menu-toggle">
+                            <svg fill="currentColor" viewBox="0 0 24 24" width="24" height="24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"></path></svg>
+                        </button>
+                        <div class="actions-menu-dropdown">
+                            <a href="#" id="edit-note-btn-mobile">ویرایش جزوه</a>
+                            <a href="#" id="export-note-btn-mobile">خروجی جزوه</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="notes-header" id="editor-header-controls" style="display: none;">
+                    <h3 style="font-weight: 600;color: var(--text-secondary);">در حال ویرایش جزوه...</h3>
+                    <button class="button-primary" id="save-and-exit-btn">اتمام ویرایش</button>
+                </div>
+
+                <div id="note-viewer">
+                    <div class="viewer-header">
+                        <h1 id="note-title-display" class="note-title-display"></h1>
+                        <div id="note-meta-display" class="note-meta-display"></div>
+                    </div>
+                    <div id="note-viewer-content"></div>
+                </div>
+
+                <div id="editor-container">
+                    <div class="editor-header-inputs">
+                        <input type="text" class="editor-title-input" id="note-title-input" placeholder="عنوان جزوه...">
+                    </div>
+                    <div class="quill-editor-container">
+                        <div id="quill-editor"></div>
+                    </div>
+                    <div class="editor-footer">
+                        <div class="save-status" id="save-status">ذخیره شده</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    {% include 'components/mobile_nav.html' %}
+
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script>
+        let currentNote = null;
+        let notebookId = null;
+        let quill = null;
+        let autoSaveTimer = null;
+
+        const noteViewer = document.getElementById('note-viewer');
+        const editorContainer = document.getElementById('editor-container');
+        const viewerHeaderControls = document.getElementById('viewer-header-controls');
+        const editorHeaderControls = document.getElementById('editor-header-controls');
+
+        document.addEventListener('DOMContentLoaded', function() {
+            setupSidebarToggle();
+            setupThemeSwitcher();
+            setupEditorControls();
+            loadNote();
+        });
+
+        async function loadNote() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const noteId = urlParams.get('note_id');
+
+            if (!noteId) {
+                window.location.href = '/notebooks';
+                return;
+            }
+
+            try {
+                currentNote = await notesAPI.getById(noteId);
+                notebookId = currentNote.notebook_id;
+
+                document.getElementById('note-title-display').textContent = currentNote.title;
+                document.getElementById('note-meta-display').innerHTML = currentNote.session_date ?
+                    `${formatDate(currentNote.session_date)}` : '';
+
+                // Render content from JSON structure
+                renderNoteContent(currentNote.note);
+
+                exitEditMode();
+            } catch (error) {
+                showToast('خطا در بارگذاری جزوه', 'error');
+                setTimeout(() => window.location.href = '/notebooks', 2000);
+            }
+        }
+
+        function renderNoteContent(noteHtml) {
+            const viewerContent = document.getElementById('note-viewer-content');
+            // Note is now plain HTML, just display it
+            viewerContent.innerHTML = noteHtml || '<p>محتوایی موجود نیست.</p>';
+        }
+
+        function initializeQuill() {
+            if (quill) return;
+
+            const toolbarOptions = [
+                [{ 'header': [1, 2, 3, false] }],
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                [{ 'align': [] }],
+                ['blockquote', 'code-block'],
+                ['clean']
+            ];
+
+            quill = new Quill('#quill-editor', {
+                modules: { toolbar: toolbarOptions },
+                placeholder: 'محتوای جزوه خود را اینجا بنویسید...',
+                theme: 'snow'
+            });
+
+            quill.on('text-change', () => {
+                clearTimeout(autoSaveTimer);
+                document.getElementById('save-status').textContent = 'در حال ذخیره...';
+                autoSaveTimer = setTimeout(async () => {
+                    await saveNote();
+                }, 1000);
+            });
+        }
+
+        async function saveNote() {
+            if (!currentNote || !quill) return;
+
+            try {
+                const title = document.getElementById('note-title-input').value;
+                const htmlContent = quill.root.innerHTML;
+
+                // Send HTML directly
+                await notesAPI.update(currentNote.id, {
+                    title: title,
+                    note: htmlContent
+                });
+
+                currentNote.title = title;
+                currentNote.note = htmlContent;
+
+                document.getElementById('save-status').textContent = 'ذخیره شده';
+            } catch (error) {
+                document.getElementById('save-status').textContent = 'خطا در ذخیره';
+                showToast('خطا در ذخیره‌سازی', 'error');
+            }
+        }
+
+        function enterEditMode() {
+            if (!currentNote) return;
+            initializeQuill();
+
+            viewerHeaderControls.style.display = 'none';
+            editorHeaderControls.style.display = 'flex';
+            noteViewer.style.display = 'none';
+            editorContainer.style.display = 'block';
+
+            document.getElementById('note-title-input').value = currentNote.title;
+
+            // Load HTML content into Quill (correct way)
+            const noteContent = currentNote.note || '';
+            if (noteContent) {
+                // Use Quill's clipboard API to safely insert HTML
+                quill.clipboard.dangerouslyPasteHTML(noteContent);
+            } else {
+                // Clear the editor if no content
+                quill.setText('');
+            }
+
+            document.getElementById('save-status').textContent = 'آماده ویرایش';
+        }
+
+        async function exitEditMode() {
+            if (!currentNote) return;
+
+            if (quill) {
+                await saveNote();
+            }
+
+            document.getElementById('note-title-display').textContent = currentNote.title;
+            renderNoteContent(currentNote.note);
+
+            viewerHeaderControls.style.display = 'flex';
+            editorHeaderControls.style.display = 'none';
+            editorContainer.style.display = 'none';
+            noteViewer.style.display = 'block';
+        }
+
+        function setupEditorControls() {
+            document.getElementById('back-to-notes-btn').addEventListener('click', () => {
+                if (notebookId) {
+                    window.location.href = `/notes?notebook_id=${notebookId}`;
+                } else {
+                    window.location.href = '/notebooks';
+                }
+            });
+
+            document.getElementById('edit-note-btn').addEventListener('click', enterEditMode);
+            document.getElementById('edit-note-btn-mobile').addEventListener('click', (e) => {
+                e.preventDefault();
+                enterEditMode();
+                document.querySelector('.actions-menu-dropdown').classList.remove('active');
+            });
+            document.getElementById('save-and-exit-btn').addEventListener('click', exitEditMode);
+
+            // Export functionality
+            document.getElementById('export-note-btn').addEventListener('click', exportNote);
+            document.getElementById('export-note-btn-mobile').addEventListener('click', (e) => {
+                e.preventDefault();
+                exportNote();
+                document.querySelector('.actions-menu-dropdown').classList.remove('active');
+            });
+
+            const menuToggle = document.querySelector('.actions-menu-toggle');
+            const menuDropdown = document.querySelector('.actions-menu-dropdown');
+
+            if (menuToggle && menuDropdown) {
+                menuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    menuDropdown.classList.toggle('active');
+                });
+            }
+            document.body.addEventListener('click', () => {
+                if (menuDropdown && menuDropdown.classList.contains('active')) {
+                    menuDropdown.classList.remove('active');
+                }
+            });
+        }
+
+        async function exportNote() {
+            if (!currentNote) return;
+
+            const btn = document.getElementById('export-note-btn');
+            btn.disabled = true;
+            btn.textContent = 'در حال آماده‌سازی...';
+
+            try {
+                const blob = await notesAPI.exportPDF(currentNote.id);
+                downloadBlob(blob, `${currentNote.title}.pdf`);
+                showToast('PDF با موفقیت دانلود شد', 'success');
+            } catch (error) {
+                showToast(error.message || 'خطا در دانلود PDF', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'خروجی جزوه';
+            }
+        }
+    </script>
+</body>
+</html>

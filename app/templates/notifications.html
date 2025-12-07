@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>نویسو - اعلان‌ها</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .notifications-list {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .notification-item {
+            background: var(--bg-primary);
+            border: var(--border-width) solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-hard);
+            transition: all var(--transition-speed);
+            cursor: pointer;
+        }
+
+        .notification-item:hover {
+            transform: translateY(-2px) translateX(-2px);
+        }
+
+        .notification-item.unread {
+            background: #f0f9ff;
+        }
+
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 8px;
+        }
+
+        .notification-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: #1f2937;
+        }
+
+        .notification-time {
+            font-size: 12px;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .notification-message {
+            color: #4b5563;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .notification-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .notification-btn {
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            cursor: pointer;
+            border: var(--border-width) solid var(--border-color);
+            transition: all var(--transition-speed);
+            box-shadow: var(--shadow-hard-sm);
+            font-weight: 600;
+        }
+
+        .notification-btn:hover {
+            transform: translateY(-2px) translateX(-2px);
+        }
+
+        .btn-view {
+            background: var(--accent);
+            color: var(--accent-fg);
+        }
+
+        .btn-mark-read {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .btn-delete {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .mark-all-read {
+            margin-bottom: 16px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <div class="app-container">
+        {% set active_page = 'notifications' %}
+        {% include 'components/sidebar.html' %}
+
+        <main class="main-content-wrapper">
+            <div class="content-container">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">اعلان‌ها</h1>
+                        <p class="page-subtitle">همه اعلان‌های پردازش یادداشت‌های شما</p>
+                    </div>
+                    <div class="mark-all-read">
+                        <button class="button-secondary" id="mark-all-read-btn" style="display:none;">
+                            علامت‌زدن همه به عنوان خوانده شده
+                        </button>
+                    </div>
+                </div>
+
+                <div class="notifications-list" id="notifications-list">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔔</div>
+                        <h3>در حال بارگذاری...</h3>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    {% include 'components/mobile_nav.html' %}
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script>
+        let allNotifications = [];
+
+        // تایم‌فریمز برای نمایش زمان
+        function getRelativeTime(timestamp) {
+            const now = new Date();
+            const notifTime = new Date(timestamp);
+            const diffMs = now - notifTime;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'الان';
+            if (diffMins < 60) return `${diffMins} دقیقه پیش`;
+            if (diffHours < 24) return `${diffHours} ساعت پیش`;
+            if (diffDays < 7) return `${diffDays} روز پیش`;
+
+            return notifTime.toLocaleDateString('fa-IR');
+        }
+
+        // نمایش notification
+        function renderNotification(notif) {
+            const typeClass = notif.type === 'note_failed' ? 'failed' : 'completed';
+            const unreadClass = !notif.is_read ? 'unread' : '';
+
+            return `
+                <div class="notification-item ${typeClass} ${unreadClass}" data-id="${notif.id}">
+                    <div class="notification-header">
+                        <div class="notification-title">${notif.title}</div>
+                        <div class="notification-time">${getRelativeTime(notif.created_at)}</div>
+                    </div>
+                    <div class="notification-message">${notif.message}</div>
+                    <div class="notification-actions">
+                        ${notif.related_note_id ? `
+                            <button class="notification-btn btn-view" onclick="viewNote(${notif.id}, ${notif.related_note_id})">
+                                مشاهده یادداشت
+                            </button>
+                        ` : ''}
+                        ${!notif.is_read ? `
+                            <button class="notification-btn btn-mark-read" onclick="markAsRead(${notif.id})">
+                                خواندم
+                            </button>
+                        ` : ''}
+                        <button class="notification-btn btn-delete" onclick="deleteNotification(${notif.id})">
+                            حذف
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // لود notifications
+        async function loadNotifications() {
+            try {
+                const response = await fetch('/api/v1/notifications/', {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) throw new Error('Failed to load notifications');
+
+                allNotifications = await response.json();
+                renderNotifications();
+                updateUnreadBadge();
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+                document.getElementById('notifications-list').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <h3>خطا در بارگذاری اعلان‌ها</h3>
+                    </div>
+                `;
+            }
+        }
+
+        // رندر اعلان‌ها
+        function renderNotifications() {
+            const container = document.getElementById('notifications-list');
+
+            if (allNotifications.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔔</div>
+                        <h3>هیچ اعلانی وجود ندارد</h3>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = allNotifications.map(renderNotification).join('');
+            }
+
+            // نمایش دکمه mark all
+            const hasUnread = allNotifications.some(n => !n.is_read);
+            document.getElementById('mark-all-read-btn').style.display =
+                hasUnread ? 'block' : 'none';
+        }
+
+        // آپدیت badge تعداد unread
+        function updateUnreadBadge() {
+            const unreadCount = allNotifications.filter(n => !n.is_read).length;
+            // می‌تونید badge رو به navbar اضافه کنید
+            console.log('Unread notifications:', unreadCount);
+        }
+
+        // مشاهده نوت
+        async function viewNote(notifId, noteId) {
+            // Mark notification as read first
+            try {
+                await fetch(`/api/v1/notifications/${notifId}/read`, {
+                    method: 'PUT',
+                    credentials: 'include'
+                });
+            } catch (error) {
+                console.error('Error marking notification as read:', error);
+            }
+
+            // Redirect to editor
+            window.location.href = `/editor?note_id=${noteId}`;
+        }
+
+        // علامت‌زدن به عنوان خوانده شده
+        async function markAsRead(notifId) {
+            try {
+                const response = await fetch(`/api/v1/notifications/${notifId}/read`, {
+                    method: 'PUT',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    await loadNotifications();
+                }
+            } catch (error) {
+                console.error('Error marking as read:', error);
+            }
+        }
+
+        // علامت‌زدن همه
+        async function markAllAsRead() {
+            try {
+                const response = await fetch('/api/v1/notifications/read-all', {
+                    method: 'PUT',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    await loadNotifications();
+                }
+            } catch (error) {
+                console.error('Error marking all as read:', error);
+            }
+        }
+
+        // حذف notification
+        async function deleteNotification(notifId) {
+            if (!confirm('آیا مطمئن هستید؟')) return;
+
+            try {
+                const response = await fetch(`/api/v1/notifications/${notifId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    await loadNotifications();
+                }
+            } catch (error) {
+                console.error('Error deleting notification:', error);
+            }
+        }
+
+        // Mark all read
+        document.getElementById('mark-all-read-btn').addEventListener('click', markAllAsRead);
+
+        // لود اولیه
+        loadNotifications();
+
+        // رفرش هر 30 ثانیه
+        setInterval(loadNotifications, 30000);
+    </script>
+</body>
+</html>

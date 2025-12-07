@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>نویسو - تبدیل هوشمند گفتار به جزوه برای دانشجویان</title>
+    <meta name="description" content="با نویسو، فایل‌های صوتی کلاس و سخنرانی‌های خود را به جزوه‌هایی دقیق و قابل ویرایش تبدیل کنید و ساعت‌ها در وقت خود صرفه‌جویی کنید.">
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <style>
+        /* --- General & Root Variables (Inspired by your panel) --- */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f7f7f9;
+            --text-primary: #111111;
+            --text-secondary: #555555;
+            --border-color: #111111;
+            --accent: #111111;
+            --accent-fg: #ffffff;
+            
+            --radius: 14px;
+            --radius-sm: 10px;
+            --border-width: 2px;
+            
+            --shadow-hard: 4px 4px 0 var(--border-color);
+            --shadow-hard-sm: 3px 3px 0 var(--border-color);
+            --transition-speed: 0.2s;
+        }
+
+        /* Basic Reset & Body Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.8;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* --- Header & Navigation --- */
+        .header {
+            padding: 20px 0;
+            border-bottom: var(--border-width) solid var(--border-color);
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(5px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+            font-weight: 500;
+        }
+        .nav-links a {
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color var(--transition-speed);
+        }
+        .nav-links a:hover {
+            color: var(--text-secondary);
+        }
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* --- Buttons (Consistent with panel) --- */
+        .button-primary {
+            background: var(--bg-primary); color: var(--text-primary); border: var(--border-width) solid var(--border-color);
+            padding: 12px 32px; border-radius: var(--radius-sm); cursor: pointer;
+            font-family: inherit; font-size: 14px; font-weight: 600; transition: all var(--transition-speed);
+            box-shadow: var(--shadow-hard-sm); text-decoration: none; display: inline-block;
+        }
+        .button-primary:hover { transform: translateY(-3px) translateX(-3px); box-shadow: var(--shadow-hard); }
+        .button-primary:active { transform: translateY(0) translateX(0); box-shadow: var(--shadow-hard-sm); }
+        
+        .button-accent {
+            background: var(--accent); color: var(--accent-fg); border: var(--border-width) solid var(--border-color);
+            padding: 14px 36px; border-radius: var(--radius-sm); cursor: pointer;
+            font-family: inherit; font-size: 16px; font-weight: 700; transition: all var(--transition-speed);
+            box-shadow: var(--shadow-hard-sm); text-decoration: none; display: inline-block;
+        }
+        .button-accent:hover { transform: translateY(-3px) translateX(-3px); box-shadow: var(--shadow-hard); }
+
+        /* --- Section Styling --- */
+        .section {
+            padding: 80px 0;
+        }
+        .section-title {
+            font-size: 36px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .section-subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto 60px;
+        }
+
+        /* --- Hero Section --- */
+        .hero {
+            text-align: center;
+            padding: 100px 0;
+        }
+        .hero-title {
+            font-size: 48px;
+            font-weight: 800;
+            line-height: 1.4;
+            margin-bottom: 20px;
+        }
+        .hero-subtitle {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto 40px;
+        }
+        .hero-cta {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        /* --- How It Works Section --- */
+        .how-it-works-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            text-align: center;
+        }
+        .step-card {
+            border: var(--border-width) solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: var(--shadow-hard);
+            background: var(--bg-primary); /* White boxes on gray background */
+        }
+        .step-number {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: var(--accent-fg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 auto 20px;
+            border: var(--border-width) solid var(--border-color);
+            box-shadow: var(--shadow-hard-sm);
+        }
+        .step-card h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        /* --- Features Section --- */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+        .feature-card {
+            /* CORRECTED: background is now secondary (gray) to contrast with white section */
+            background: var(--bg-secondary);
+            border: var(--border-width) solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: var(--shadow-hard);
+        }
+        .feature-card h3 {
+            font-size: 22px;
+            margin-bottom: 12px;
+            margin-top: 16px;
+        }
+        .feature-card p {
+            color: var(--text-secondary);
+        }
+
+        /* --- Pricing Section --- */
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            align-items: stretch;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .plan-card {
+            background: var(--bg-primary); 
+            border-radius: var(--radius); 
+            padding: 32px;
+            border: var(--border-width) solid var(--border-color); 
+            transition: all var(--transition-speed);
+            display: flex; 
+            flex-direction: column;
+            box-shadow: var(--shadow-hard);
+        }
+        .plan-card:hover { 
+            transform: translateY(-3px) translateX(-3px); 
+        }
+        .plan-card.featured { 
+            transform: scale(1.05); 
+            box-shadow: var(--shadow-hard); 
+            background: var(--accent); 
+            color: var(--accent-fg); 
+        }
+        .plan-card.featured:hover {
+             transform: scale(1.05) translateY(-3px) translateX(-3px); 
+        }
+        .plan-badge { 
+            background: var(--accent); 
+            color: var(--accent-fg); 
+            padding: 4px 12px; 
+            border-radius: 20px; 
+            font-size: 12px; 
+            font-weight: 600; 
+            align-self: flex-start; 
+            margin-bottom: 16px; 
+        }
+        .plan-name { font-size: 24px; font-weight: 700; }
+        .plan-price { font-size: 36px; font-weight: 700; }
+        .plan-period { color: var(--text-secondary); margin-bottom: 24px; }
+        .plan-features { list-style: none; margin-bottom: 32px; flex-grow: 1; }
+        .plan-features li { padding: 12px 0; border-bottom: 1px solid var(--bg-secondary); }
+        .plan-card .button-primary { margin-top: auto; width: 100%; text-align: center; }
+        .plan-card.featured .plan-badge, .plan-card.featured .button-primary { background: var(--accent-fg); color: var(--accent); box-shadow: none; }
+        .plan-card.featured .plan-period, .plan-card.featured .plan-features { color: var(--accent-fg); }
+        .plan-card.featured .plan-features li { border-color: rgba(255,255,255,0.2); }
+
+        /* --- Final CTA Section --- */
+        .final-cta {
+            background: var(--bg-secondary);
+            border-top: var(--border-width) solid var(--border-color);
+            border-bottom: var(--border-width) solid var(--border-color);
+            text-align: center;
+        }
+
+        /* --- Footer --- */
+        .footer {
+            padding: 40px 0;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+        .footer .logo {
+            font-size: 24px;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+
+        /* --- Responsive --- */
+        @media (max-width: 768px) {
+            .nav-links, .nav-actions .button-primary {
+                display: none;
+            }
+            .hero-title {
+                font-size: 36px;
+            }
+            .hero-subtitle {
+                font-size: 18px;
+            }
+            .how-it-works-grid {
+                grid-template-columns: 1fr;
+            }
+            .plan-card.featured {
+                transform: none;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <a href="#" class="logo">نویسو</a>
+                <ul class="nav-links">
+                    <li><a href="#how-it-works">چطور کار می‌کند؟</a></li>
+                    <li><a href="#features">ویژگی‌ها</a></li>
+                    <li><a href="#pricing">پلن‌ها</a></li>
+                </ul>
+                <div class="nav-actions">
+                    <a href="/login" class="button-primary">ورود به پنل</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero section">
+            <div class="container">
+                <h1 class="hero-title">وقتت رو آزاد کن، جزوه‌هات رو به هوش مصنوعی بسپار</h1>
+                <p class="hero-subtitle">
+                    نویسو، پلتفرم هوشمند تبدیل صدای کلاس به جزوه‌هایی خوانا و منظم است. دیگر لازم نیست ساعت‌ها برای رونویسی ویس‌های ضبط‌شده وقت بگذاری! فایل صوتی را آپلود کن و جزوه آماده تحویل بگیر.
+                </p>
+                <div class="hero-cta">
+                    <a href="/login" class="button-accent">رایگان شروع کنید</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="how-it-works" class="section" style="background: var(--bg-secondary); border-top: var(--border-width) solid var(--border-color);">
+            <div class="container">
+                <h2 class="section-title">فقط در سه مرحله ساده</h2>
+                <p class="section-subtitle">فرآیند تبدیل ویس به جزوه هیچوقت به این سادگی نبوده است.</p>
+                <div class="how-it-works-grid">
+                    <div class="step-card">
+                        <div class="step-number">۱</div>
+                        <h3>فایل صوتی را آپلود کن</h3>
+                        <p>فایل صوتی کلاس یا سخنرانی خود را با هر فرمتی  در پنل کاربری خود بارگذاری کنید.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">۲</div>
+                        <h3>منتظر تبدیل هوشمند باش</h3>
+                        <p>هوش مصنوعی قدرتمند ما  گفتار را با دقت بالا به متن تبدیل می‌کند و آن را ساختاربندی می‌کند.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">۳</div>
+                        <h3>جزوه را ویرایش و ذخیره کن</h3>
+                        <p>متن خود را در ویرایشگر پیشرفته ما اصلاح، تیتربندی و هایلایت کنید و جزوه های نهایی را مثل یک دفتر خروجی بگیرید.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="features" class="section">
+            <div class="container">
+                <h2 class="section-title">ابزاری که برای موفقیت نیاز داری</h2>
+                <p class="section-subtitle">نویسو چیزی فراتر از یک مبدل ساده است؛ یک دستیار هوشمند برای مدیریت جزوات شماست.</p>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <h3>صرفه‌جویی در زمان</h3>
+                        <p>ساعت‌ها زمان ارزشمند خود را که صرف رونویسی دستی می‌کردید، برای مطالعه و درک عمیق‌تر مفاهیم ذخیره کنید.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>دقت بی‌نظیر</h3>
+                        <p>با بهره‌گیری از مدل پیشرفته Gemini 2.5 Flash، گفتار را با کمترین خطا به متن تبدیل می‌کنیم تا چیزی از قلم نیفتد.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>ویرایشگر پیشرفته آنلاین</h3>
+                        <p>متن تبدیل‌شده را به سادگی ویرایش کنید، تیترها را اضافه کنید، نکات کلیدی را هایلایت کنید و یک جزوه کامل بسازید.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>سازماندهی در دفترها</h3>
+                        <p>تمام جزوات یک درس را در یک "دفتر" مشخص گروه‌بندی کنید تا در طول ترم به راحتی به آن‌ها دسترسی داشته باشید.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>امنیت و حریم خصوصی</h3>
+                        <p>ما به حریم خصوصی شما احترام می‌گذاریم. فایل‌های صوتی شما پس از پردازش به صورت خودکار حذف می‌شوند.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>دسترسی از همه‌جا</h3>
+                        <p>نویسو یک پلتفرم تحت وب است و شما از طریق هر دستگاهی (موبایل یا لپتاپ) به جزوات خود دسترسی دارید.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="pricing" class="section" style="background: var(--bg-secondary); border-top: var(--border-width) solid var(--border-color);">
+            <div class="container">
+                <h2 class="section-title">پلن اشتراک مناسب خود را انتخاب کنید</h2>
+                <p class="section-subtitle">با پلن‌های متنوع نویسو، با هر بودجه‌ای می‌توانید هوشمندانه درس بخوانید.</p>
+                <div class="plans-grid">
+                    <div class="plan-card">
+                        <div class="plan-name">پایه</div>
+                        <div class="plan-price">۱۵۰,۰۰۰ تومان</div>
+                        <div class="plan-period">در ماه</div>
+                        <ul class="plan-features">
+                            <li>✓ ۳۰۰ دقیقه تبدیل</li>
+                            <li>✓ ۵ دفتر</li>
+                            <li>✓ ویرایشگر پیشرفته</li>
+                            <li>✓ خروجی PDF</li>
+                        </ul>
+                        <a href="/login" class="button-primary">انتخاب پلن</a>
+                    </div>
+                    <div class="plan-card featured">
+                        <span class="plan-badge">محبوب</span>
+                        <div class="plan-name">حرفه‌ای</div>
+                        <div class="plan-price">۲۵۰,۰۰۰ تومان</div>
+                        <div class="plan-period">در ماه</div>
+                        <ul class="plan-features">
+                            <li>✓ ۶۰۰ دقیقه تبدیل</li>
+                            <li>✓ دفتر نامحدود</li>
+                            <li>✓ ویرایشگر پیشرفته</li>
+                            <li>✓ خروجی PDF و Word</li>
+                            <li>✓ پشتیبانی اولویت‌دار</li>
+                        </ul>
+                        <a href="/login" class="button-primary">انتخاب پلن</a>
+                    </div>
+                    <div class="plan-card">
+                        <div class="plan-name">دانشجویی</div>
+                        <div class="plan-price">۴۰۰,۰۰۰ تومان</div>
+                        <div class="plan-period">در ترم (۴ ماه)</div>
+                        <ul class="plan-features">
+                            <li>✓ ۱۲۰۰ دقیقه تبدیل</li>
+                            <li>✓ دفتر نامحدود</li>
+                            <li>✓ ویرایشگر پیشرفته</li>
+                            <li>✓ خروجی PDF و Word</li>
+                            <li>✓ پشتیبانی ۲۴/۷</li>
+                            <li>✓ تخفیف ویژه دانشجویی</li>
+                        </ul>
+                        <a href="/login" class="button-primary">انتخاب پلن</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="final-cta section" style="background: var(--bg-primary);">
+            <div class="container">
+                <h2 class="section-title">آماده‌ای تا هوشمندانه‌تر درس بخوانی؟</h2>
+                <p class="section-subtitle">همین حالا به نویسو بپیوند و اولین فایل صوتی خود را به یک جزوه کامل تبدیل کن.</p>
+                <a href="/login" class="button-accent">همین حالا شروع می‌کنم</a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer" style="background: var(--bg-secondary);">
+        <div class="container">
+            <a href="#" class="logo">نویسو</a>
+            <p>© ۱۴۰۳ - تمام حقوق برای نویسو محفوظ است.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

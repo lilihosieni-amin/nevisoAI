@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>نویسو - همه جزوه‌ها</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body data-theme="light">
+    <div class="app-container">
+        {% set active_page = 'notebooks' %}
+        {% include 'components/sidebar.html' %}
+
+        <main class="main-content-wrapper">
+            <div class="content-container">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">همه جزوه‌ها</h1>
+                        <p class="page-subtitle">آخرین جزوه‌های ثبت‌شده در تمام دفترها</p>
+                    </div>
+                </div>
+                <div class="notes-list" id="all-notes-list"></div>
+            </div>
+        </main>
+    </div>
+
+    {% include 'components/mobile_nav.html' %}
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            setupSidebarToggle();
+            setupThemeSwitcher();
+            loadAllNotes();
+        });
+
+        async function loadAllNotes() {
+            const container = document.getElementById('all-notes-list');
+            showLoading(container);
+
+            try {
+                // Get all notebooks
+                const notebooks = await notebooksAPI.getAll();
+
+                // Get all notes from all notebooks
+                const allNotesPromises = notebooks.map(notebook =>
+                    notesAPI.getAll(notebook.id).then(notes =>
+                        notes.map(note => ({
+                            ...note,
+                            notebook_title: notebook.title
+                        }))
+                    )
+                );
+
+                const allNotesArrays = await Promise.all(allNotesPromises);
+                const allNotes = allNotesArrays.flat();
+
+                // Sort by created_at descending
+                allNotes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+                renderAllNotes(allNotes);
+            } catch (error) {
+                showError(container, 'خطا در بارگذاری جزوه‌ها');
+            }
+        }
+
+        function renderAllNotes(notes) {
+            const container = document.getElementById('all-notes-list');
+
+            if (notes.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">هنوز هیچ جزوه‌ای اضافه نشده است.</div>';
+                return;
+            }
+
+            container.innerHTML = notes.map(note => {
+                const statusMessages = {
+                    processing: 'در حال پردازش',
+                    completed: 'کامل شده',
+                    failed: 'پردازش ناموفق'
+                };
+
+                // Extract preview from HTML note
+                let preview = '';
+                if (note.note) {
+                    const text = note.note.replace(/<[^>]*>/g, '');
+                    preview = text.substring(0, 100) + '...';
+                }
+
+                return `
+                <div class="note-card" onclick="openNote(${note.id})">
+                    <div class="note-header">
+                        <div class="note-header-main">
+                            <div class="note-title">${note.title}</div>
+                            <div class="note-course">${note.notebook_title}</div>
+                        </div>
+                        <div class="note-header-meta">
+                            <div class="note-date">${note.session_date ? formatDate(note.session_date) : ''}</div>
+                            <span class="note-status ${note.status}">${statusMessages[note.status] || note.status}</span>
+                        </div>
+                    </div>
+                    ${preview ? `<div class="note-preview">${preview}</div>` : ''}
+                </div>
+            `}).join('');
+        }
+
+        function openNote(noteId) {
+            window.location.href = `/editor?note_id=${noteId}`;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>نویسو - پلن‌های اشتراک</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body data-theme="light">
+    <div class="app-container">
+        {% set active_page = 'notebooks' %}
+        {% include 'components/sidebar.html' %}
+
+        <main class="main-content-wrapper">
+            <div class="content-container">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">پلن‌های اشتراک</h1>
+                        <p class="page-subtitle">پلن مناسب خود را انتخاب کنید</p>
+                    </div>
+                </div>
+                <div class="plans-grid" id="plans-grid"></div>
+            </div>
+        </main>
+    </div>
+
+    {% include 'components/mobile_nav.html' %}
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            setupSidebarToggle();
+            setupThemeSwitcher();
+            loadPlans();
+        });
+
+        async function loadPlans() {
+            const container = document.getElementById('plans-grid');
+            showLoading(container);
+
+            try {
+                const plans = await plansAPI.getAll();
+                renderPlans(plans);
+            } catch (error) {
+                showError(container, 'خطا در بارگذاری پلن‌ها');
+            }
+        }
+
+        function renderPlans(plans) {
+            const container = document.getElementById('plans-grid');
+
+            if (plans.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">پلنی موجود نیست.</div>';
+                return;
+            }
+
+            container.innerHTML = plans.map(plan => {
+                const isFeatured = plan.is_featured || false;
+                const features = plan.features || [];
+
+                return `
+                <div class="plan-card ${isFeatured ? 'featured' : ''}">
+                    ${isFeatured ? '<span class="plan-badge">محبوب</span>' : ''}
+                    <div class="plan-name">${plan.name}</div>
+                    <div class="plan-price">${plan.price.toLocaleString('fa-IR')} تومان</div>
+                    <div class="plan-period">${getPeriodText(plan.duration_days)}</div>
+                    <ul class="plan-features">
+                        <li>✓ ${plan.minutes_limit.toLocaleString('fa-IR')} دقیقه تبدیل</li>
+                        ${features.map(feature => `<li>✓ ${feature}</li>`).join('')}
+                    </ul>
+                    <button class="button-primary" style="width: 100%;" onclick="purchasePlan(${plan.id})">انتخاب پلن</button>
+                </div>
+            `}).join('');
+        }
+
+        function getPeriodText(days) {
+            if (days === 30) return 'در ماه';
+            if (days === 90) return 'در ۳ ماه';
+            if (days === 120) return 'در ترم (۴ ماه)';
+            if (days === 365) return 'در سال';
+            return `${days} روزه`;
+        }
+
+        async function purchasePlan(planId) {
+            try {
+                const result = await paymentsAPI.createCheckout(planId);
+
+                if (result.payment_url) {
+                    // Redirect to payment gateway
+                    window.location.href = result.payment_url;
+                } else {
+                    showToast('خطا در ایجاد درخواست پرداخت', 'error');
+                }
+            } catch (error) {
+                showToast(error.message || 'خطا در ایجاد درخواست پرداخت', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

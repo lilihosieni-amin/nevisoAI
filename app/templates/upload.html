@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>نویسو - آپلود فایل</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        /* Hide back button on desktop */
+        @media (min-width: 1025px) {
+            #upload-page .notes-header {
+                display: none;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            #upload-page .mobile-nav {
+                display: none !important;
+            }
+            #upload-page .main-content-wrapper {
+                padding-bottom: 40px;
+            }
+        }
+    </style>
+</head>
+<body data-theme="light" id="upload-page">
+    <div class="app-container">
+        {% set active_page = '' %}
+        {% include 'components/sidebar.html' %}
+
+        <main class="main-content-wrapper">
+            <div class="content-container">
+                <div class="notes-header">
+                    <button class="back-button" onclick="window.location.href='/notebooks'">→ بازگشت به دفترها</button>
+                </div>
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">آپلود فایل صوتی</h1>
+                        <p class="page-subtitle">فایل‌های صوتی خود را برای تبدیل به جزوه انتخاب کنید</p>
+                    </div>
+                    <div>
+                        <div id="credit-balance" style="text-align: left; font-size: 14px; color: var(--text-secondary);">
+                            <span>موجودی اعتبار: </span>
+                            <span id="credit-balance-value" style="font-weight: 600; color: var(--accent);">در حال بارگذاری...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="upload-layout-grid">
+                    <div class="upload-form-container">
+                        <div class="upload-form">
+                            <div class="form-group">
+                                <label class="form-label">انتخاب دفتر</label>
+                                <div class="form-select-wrapper">
+                                    <select class="form-select" id="notebook-select">
+                                        <option value="">در حال بارگذاری...</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">تاریخ جلسه (اختیاری)</label>
+                                <input type="text" class="form-input" id="session-date-jalali" placeholder="مثال: 1403/09/15" maxlength="10" inputmode="numeric">
+                            </div>
+
+                            <!-- Upload Progress Bar -->
+                            <div id="upload-progress-container" style="display: none; margin-top: 24px;">
+                                <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: 600; font-size: 14px;">در حال آپلود...</span>
+                                    <span id="upload-progress-text" style="font-size: 14px; color: var(--text-secondary);">0%</span>
+                                </div>
+                                <div style="background: var(--bg-secondary); height: 8px; border-radius: 4px; overflow: hidden; border: var(--border-width) solid var(--border-color);">
+                                    <div id="upload-progress-bar" style="background: var(--accent); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                                </div>
+                                <div id="upload-status-text" style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);"></div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="button-secondary" id="cancel-btn" onclick="window.location.href='/notebooks'">انصراف</button>
+                                <button class="button-primary" id="submit-btn" onclick="uploadFile()">شروع تبدیل</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="file-upload-container">
+                        <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+                            <div class="upload-icon">🎤</div>
+                            <div class="upload-text">فایل‌ها را اینجا بکشید یا کلیک کنید</div>
+                            <div class="upload-hint">فایل‌های صوتی و تصویری پشتیبانی می‌شوند</div>
+                        </div>
+                        <input type="file" id="file-input" accept="audio/*,image/jpeg,image/png,image/gif,video/*" style="display: none;" multiple onchange="handleFileSelect(event)">
+
+                        <div class="file-list-container">
+                            <div class="file-list-header">فایل‌های انتخاب شده (<span id="file-count">0</span>)</div>
+                            <div id="file-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    {% include 'components/mobile_nav.html' %}
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script>
+        let uploadedFiles = [];
+        let notebooks = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            setupSidebarToggle();
+            setupThemeSwitcher();
+            setupUploadArea();
+            loadNotebooks();
+            setupDateInput();
+            loadCreditBalance();
+        });
+
+        async function loadCreditBalance() {
+            const balanceElement = document.getElementById('credit-balance-value');
+            try {
+                const response = await fetch('/api/v1/credits/balance', {
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    const balance = await response.json();
+                    const totalMinutes = balance.total_minutes;
+                    balanceElement.textContent = `${totalMinutes.toFixed(1)} دقیقه`;
+                    balanceElement.style.color = totalMinutes > 10 ? 'var(--accent)' : '#ef4444';
+                } else {
+                    balanceElement.textContent = 'خطا در بارگذاری';
+                    balanceElement.style.color = '#ef4444';
+                }
+            } catch (error) {
+                console.error('Error loading credit balance:', error);
+                balanceElement.textContent = 'خطا';
+                balanceElement.style.color = '#ef4444';
+            }
+        }
+
+        async function loadNotebooks() {
+            const select = document.getElementById('notebook-select');
+            try {
+                notebooks = await notebooksAPI.getAll();
+                select.innerHTML = '<option value="">انتخاب کنید...</option>';
+
+                notebooks.forEach(notebook => {
+                    const option = document.createElement('option');
+                    option.value = notebook.id;
+                    option.textContent = notebook.title;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                select.innerHTML = '<option value="">خطا در بارگذاری دفترها</option>';
+                showToast('خطا در بارگذاری دفترها', 'error');
+            }
+        }
+
+        function setupUploadArea() {
+            const uploadArea = document.getElementById('upload-area');
+            if (!uploadArea) return;
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'));
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'));
+            });
+
+            uploadArea.addEventListener('drop', e => {
+                handleFiles(e.dataTransfer.files);
+            });
+        }
+
+        function handleFileSelect(event) {
+            handleFiles(event.target.files);
+            event.target.value = '';
+        }
+
+        function handleFiles(files) {
+            if (!files) return;
+            [...files].forEach(file => {
+                if (!uploadedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                    uploadedFiles.push(file);
+                }
+            });
+            renderFileList();
+        }
+
+        function renderFileList() {
+            const fileListContainer = document.getElementById('file-list');
+            const fileCountSpan = document.getElementById('file-count');
+            if (!fileListContainer || !fileCountSpan) return;
+
+            fileListContainer.innerHTML = '';
+            fileCountSpan.textContent = uploadedFiles.length;
+
+            if (uploadedFiles.length === 0) {
+                fileListContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary); font-size: 14px; padding: 20px;">هیچ فایلی انتخاب نشده است.</p>';
+                return;
+            }
+
+            uploadedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <span class="file-name" title="${file.name}">${file.name}</span>
+                    <span class="file-size">${formatFileSize(file.size)}</span>
+                    <button class="remove-file-btn" onclick="removeFile(${index})" title="حذف فایل">&times;</button>
+                `;
+                fileListContainer.appendChild(fileItem);
+            });
+        }
+
+        function removeFile(index) {
+            uploadedFiles.splice(index, 1);
+            renderFileList();
+        }
+
+        function setupDateInput() {
+            const dateInput = document.getElementById('session-date-jalali');
+            if (dateInput) {
+                dateInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, '');
+                    let formattedValue = '';
+                    if (value.length > 0) {
+                        formattedValue = value.substring(0, 4);
+                    }
+                    if (value.length > 4) {
+                        formattedValue += '/' + value.substring(4, 6);
+                    }
+                    if (value.length > 6) {
+                        formattedValue += '/' + value.substring(6, 8);
+                    }
+                    e.target.value = formattedValue;
+                });
+            }
+        }
+
+
+        async function uploadFile() {
+            const notebookSelect = document.getElementById('notebook-select').value;
+            const jalaliDate = document.getElementById('session-date-jalali').value;
+
+            if (!notebookSelect) {
+                showToast('لطفا دفتر را انتخاب کنید', 'error');
+                return;
+            }
+            if (uploadedFiles.length === 0) {
+                showToast('لطفا حداقل یک فایل را برای آپلود انتخاب کنید', 'error');
+                return;
+            }
+
+            // Step 1: Check credit balance before upload
+            try {
+                const balanceResponse = await fetch('/api/v1/credits/balance', {
+                    credentials: 'include'
+                });
+
+                if (!balanceResponse.ok) {
+                    showToast('خطا در بررسی موجودی اعتبار', 'error');
+                    return;
+                }
+
+                const balance = await balanceResponse.json();
+                const totalMinutes = balance.total_minutes;
+
+                // Estimate required credits (rough estimate: 0.5 min per image, file size for audio/video)
+                let estimatedMinutes = 0;
+                for (const file of uploadedFiles) {
+                    if (file.type.startsWith('image/')) {
+                        estimatedMinutes += 0.5;  // IMAGE_CREDIT_COST
+                    } else {
+                        // For audio/video, we can't know duration without uploading
+                        // Conservative estimate: assume 1 minute per MB
+                        estimatedMinutes += (file.size / (1024 * 1024));
+                    }
+                }
+
+                // Check if user has enough credits
+                if (totalMinutes < estimatedMinutes) {
+                    showToast(
+                        `اعتبار کافی نیست!\n\nموجودی شما: ${totalMinutes.toFixed(1)} دقیقه\nتخمین مورد نیاز: ${estimatedMinutes.toFixed(1)} دقیقه\n\nلطفا ابتدا اشتراک خود را تمدید کنید.`,
+                        'error'
+                    );
+                    return;
+                }
+
+                // If user has enough credits, proceed without warning
+            } catch (error) {
+                console.error('Error checking credits:', error);
+                // On error, proceed anyway - actual check will happen in worker
+            }
+
+            // Generate title from first file name
+            const firstFile = uploadedFiles[0];
+            const title = firstFile.name.replace(/\.[^/.]+$/, ''); // Remove extension
+
+            // Create FormData
+            const formData = new FormData();
+            formData.append('notebook_id', notebookSelect);
+            formData.append('title', title);
+            if (jalaliDate) formData.append('session_date', jalaliDate);  // Send Jalali date as-is
+
+            // Calculate total size for progress display
+            let totalSize = 0;
+            for (let i = 0; i < uploadedFiles.length; i++) {
+                formData.append('files', uploadedFiles[i]);
+                totalSize += uploadedFiles[i].size;
+            }
+
+            // UI Elements
+            const submitBtn = document.getElementById('submit-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+            const progressContainer = document.getElementById('upload-progress-container');
+            const progressBar = document.getElementById('upload-progress-bar');
+            const progressText = document.getElementById('upload-progress-text');
+            const statusText = document.getElementById('upload-status-text');
+
+            // Disable form and show progress
+            submitBtn.disabled = true;
+            cancelBtn.disabled = true;
+            submitBtn.textContent = 'در حال آپلود...';
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
+            statusText.textContent = `در حال آپلود ${uploadedFiles.length} فایل (${formatFileSize(totalSize)})...`;
+
+            try {
+                const note = await notesAPI.create(formData, (percent, loaded, total) => {
+                    // Update progress bar
+                    progressBar.style.width = percent + '%';
+                    progressText.textContent = percent + '%';
+                    statusText.textContent = `آپلود شده: ${formatFileSize(loaded)} از ${formatFileSize(total)} (${percent}%)`;
+                });
+
+                // Show completion
+                progressBar.style.width = '100%';
+                progressText.textContent = '100%';
+                statusText.textContent = 'آپلود کامل شد! در حال بررسی نهایی اعتبار...';
+                submitBtn.textContent = 'در حال بررسی...';
+
+                // Wait for worker to calculate actual credits (3 seconds)
+                await new Promise(resolve => setTimeout(resolve, 3000));
+
+                // Check if note failed due to insufficient credits
+                try {
+                    const checkResponse = await fetch(`/api/v1/notes/${note.id}`, {
+                        credentials: 'include'
+                    });
+
+                    if (checkResponse.ok) {
+                        const noteData = await checkResponse.json();
+
+                        if (noteData.status === 'failed' && noteData.error_message && noteData.error_message.includes('اعتبار')) {
+                            // Failed due to insufficient credits - stay on page
+                            progressContainer.style.display = 'none';
+                            showToast(`❌ ${noteData.error_message}\n\nفایل شما آپلود شد اما اعتبار کافی برای پردازش نیست. لطفا اشتراک خود را تمدید کنید.`, 'error');
+                            submitBtn.disabled = false;
+                            cancelBtn.disabled = false;
+                            submitBtn.textContent = 'شروع تبدیل';
+
+                            // Delete the uploaded note since it won't be processed
+                            try {
+                                await fetch(`/api/v1/notes/${note.id}`, {
+                                    method: 'DELETE',
+                                    credentials: 'include'
+                                });
+                            } catch (delError) {
+                                console.error('Error deleting failed note:', delError);
+                            }
+                            return;
+                        }
+                    }
+                } catch (checkError) {
+                    console.error('Error checking note status:', checkError);
+                }
+
+                // Success - processing started
+                statusText.textContent = 'پردازش آغاز شد! در حال انتقال...';
+                submitBtn.textContent = 'آپلود موفق ✓';
+                showToast('فایل‌ها با موفقیت آپلود شدند و پردازش آغاز شد', 'success');
+
+                setTimeout(() => {
+                    window.location.href = `/notes?notebook_id=${notebookSelect}`;
+                }, 1000);
+            } catch (error) {
+                // Hide progress and show error
+                progressContainer.style.display = 'none';
+                showToast(error.message || 'خطا در آپلود فایل‌ها', 'error');
+
+                // Re-enable form
+                submitBtn.disabled = false;
+                cancelBtn.disabled = false;
+                submitBtn.textContent = 'شروع تبدیل';
+            }
+        }
+
+        // Helper function to format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>

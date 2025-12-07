@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>نویسو - ورود</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-primary);
+            padding: 20px;
+        }
+
+        .auth-card {
+            background: var(--bg-card);
+            border: var(--border-width) solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 48px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: var(--shadow-hard);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .auth-logo {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .auth-subtitle {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .auth-footer {
+            text-align: center;
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: var(--border-width) solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .otp-step {
+            display: none;
+        }
+
+        .otp-step.active {
+            display: block;
+        }
+
+        @media (max-width: 640px) {
+            .auth-card {
+                padding: 32px 24px;
+            }
+            .auth-logo {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1 class="auth-logo">نویسو</h1>
+                <p class="auth-subtitle">به پلتفرم تبدیل گفتار به نوشتار خوش آمدید</p>
+            </div>
+
+            <!-- Step 1: Phone Number -->
+            <form class="auth-form otp-step active" id="phone-form">
+                <div class="form-group">
+                    <label class="form-label">شماره موبایل</label>
+                    <input type="tel" id="phone-input" class="form-input" placeholder="09123456789" required>
+                </div>
+                <button type="submit" class="button-primary" style="width: 100%;">دریافت کد تایید</button>
+            </form>
+
+            <!-- Step 2: OTP Verification -->
+            <form class="auth-form otp-step" id="otp-form">
+                <div class="form-group">
+                    <label class="form-label">کد تایید</label>
+                    <input type="text" id="otp-input" class="form-input" placeholder="کد 6 رقمی" maxlength="6" required>
+                    <p class="form-help" style="margin-top: 8px;">کد تایید به شماره <span id="phone-display"></span> ارسال شد</p>
+                </div>
+                <button type="submit" class="button-secondary" style="width: 100%; margin-bottom: 5px;">ورود</button>
+                <button type="button" id="back-btn" class="button-secondary" style="width: 100%;">بازگشت</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            setupThemeSwitcher();
+
+            const phoneForm = document.getElementById('phone-form');
+            const otpForm = document.getElementById('otp-form');
+            const phoneInput = document.getElementById('phone-input');
+            const otpInput = document.getElementById('otp-input');
+            const phoneDisplay = document.getElementById('phone-display');
+            const backBtn = document.getElementById('back-btn');
+
+            let phoneNumber = '';
+
+            // Step 1: Request OTP
+            phoneForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                phoneNumber = phoneInput.value.trim();
+
+                if (!phoneNumber) {
+                    showToast('لطفا شماره موبایل را وارد کنید', 'error');
+                    return;
+                }
+
+                try {
+                    const btn = phoneForm.querySelector('button[type="submit"]');
+                    btn.disabled = true;
+                    btn.textContent = 'در حال ارسال...';
+
+                    await authAPI.requestOTP(phoneNumber);
+
+                    // Show OTP form
+                    phoneForm.classList.remove('active');
+                    otpForm.classList.add('active');
+                    phoneDisplay.textContent = phoneNumber;
+                    showToast('کد تایید ارسال شد', 'success');
+
+                    // Focus on OTP input
+                    setTimeout(() => otpInput.focus(), 100);
+
+                } catch (error) {
+                    showToast(error.message || 'خطا در ارسال کد تایید', 'error');
+                } finally {
+                    const btn = phoneForm.querySelector('button[type="submit"]');
+                    btn.disabled = false;
+                    btn.textContent = 'دریافت کد تایید';
+                }
+            });
+
+            // Step 2: Verify OTP
+            otpForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const otpCode = otpInput.value.trim();
+
+                if (!otpCode || otpCode.length !== 6) {
+                    showToast('لطفا کد 6 رقمی را وارد کنید', 'error');
+                    return;
+                }
+
+                try {
+                    const btn = otpForm.querySelector('button[type="submit"]');
+                    btn.disabled = true;
+                    btn.textContent = 'در حال ورود...';
+
+                    const response = await authAPI.verifyOTP(phoneNumber, otpCode);
+
+                    showToast('ورود موفقیت‌آمیز', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/notebooks';
+                    }, 500);
+
+                } catch (error) {
+                    showToast(error.message || 'کد تایید نامعتبر است', 'error');
+                } finally {
+                    const btn = otpForm.querySelector('button[type="submit"]');
+                    btn.disabled = false;
+                    btn.textContent = 'ورود';
+                }
+            });
+
+            // Back button
+            backBtn.addEventListener('click', function() {
+                otpForm.classList.remove('active');
+                phoneForm.classList.add('active');
+                otpInput.value = '';
+            });
+        });
+    </script>
+</body>
+</html>
