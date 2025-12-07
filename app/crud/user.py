@@ -26,7 +26,10 @@ async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
 
 async def create_user_by_email(db: AsyncSession, email: str) -> User:
     """Create a new user with email"""
-    db_user = User(email=email, phone_number=f"email_{email[:20]}")
+    import hashlib
+    # Create a short unique phone placeholder from email hash
+    email_hash = hashlib.md5(email.encode()).hexdigest()[:12]
+    db_user = User(email=email, phone_number=f"em_{email_hash}")
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
