@@ -167,6 +167,15 @@ def process_file_with_credits(note_id: int):
                 logger.error(f"[WORKER] Error: {str(processing_error)}")
                 logger.error("=" * 80)
 
+                # Rollback any pending transaction to clear the session state
+                db.rollback()
+
+                # Re-fetch the note to ensure clean state
+                note = db.execute(select(Note).where(Note.id == note_id)).scalar_one_or_none()
+                if not note:
+                    logger.error(f"[WORKER] Note {note_id} not found after rollback")
+                    return
+
                 # Step 5: Refund credits on error
                 logger.info(f"[WORKER] Refunding {required_credits:.2f} minutes to user {user_id}")
 

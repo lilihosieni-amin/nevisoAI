@@ -12,13 +12,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # Gemini AI - Direct API (for file upload/transcription)
+    # Gemini AI - Direct API
     GEMINI_API_KEY: str  # Real Google API key from .env
     GEMINI_TRANSCRIPTION_MODEL: str = "gemini-2.5-flash"  # Model for note generation
-
-    # Gemini Dispatcher (for RAG chat only)
-    GEMINI_DISPATCHER_POOL: str = "social"  # Pool name for dispatcher
-    GEMINI_DISPATCHER_URL: str = "http://202.133.89.98:8001"
     GEMINI_CHAT_MODEL: str = "gemini-2.5-flash"  # Model for RAG chat
 
     # Redis & Celery

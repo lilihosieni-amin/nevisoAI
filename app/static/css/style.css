@@ -196,7 +196,8 @@ body {
 .back-button {
     background: var(--bg-card); border: var(--border-width) solid var(--border-color);
     padding: 10px 20px; border-radius: var(--radius-sm); cursor: pointer;
-    font-family: inherit; font-weight: 500; transition: all 0.2s ease-in-out;
+    font-family: inherit; font-size: 14px; font-weight: 500; color: var(--text-primary);
+    text-decoration: none; transition: all 0.2s ease-in-out; box-shadow: var(--shadow-hard-sm);
 }
 .back-button:hover { background: var(--bg-secondary); transform: translateX(3px); }
 

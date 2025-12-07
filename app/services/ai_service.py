@@ -1,6 +1,8 @@
 import google.generativeai as genai
 import time
 import json
+import mimetypes
+import os
 from typing import Dict, List
 from app.core.config import settings
 from app.services.exceptions import (
@@ -15,6 +17,69 @@ from app.services.exceptions import (
 
 # Configure Gemini with direct API key (for file upload support)
 genai.configure(api_key=settings.GEMINI_API_KEY)
+
+# Add additional MIME types that may not be in the standard library
+mimetypes.add_type('audio/x-m4a', '.m4a')
+mimetypes.add_type('audio/mp4', '.m4a')
+mimetypes.add_type('audio/aac', '.aac')
+mimetypes.add_type('audio/ogg', '.ogg')
+mimetypes.add_type('audio/opus', '.opus')
+mimetypes.add_type('audio/webm', '.weba')
+mimetypes.add_type('video/webm', '.webm')
+mimetypes.add_type('video/mp4', '.mp4')
+mimetypes.add_type('video/quicktime', '.mov')
+
+
+def get_mime_type(file_path: str) -> str:
+    """
+    Get MIME type for a file, with fallbacks for common audio/video formats
+
+    Args:
+        file_path: Path to the file
+
+    Returns:
+        MIME type string
+    """
+    # Try to get from mimetypes library
+    mime_type, _ = mimetypes.guess_type(file_path)
+
+    if mime_type:
+        return mime_type
+
+    # Fallback based on extension
+    ext = os.path.splitext(file_path)[1].lower()
+
+    mime_map = {
+        # Audio formats
+        '.m4a': 'audio/mp4',
+        '.mp3': 'audio/mpeg',
+        '.wav': 'audio/wav',
+        '.ogg': 'audio/ogg',
+        '.opus': 'audio/opus',
+        '.aac': 'audio/aac',
+        '.flac': 'audio/flac',
+        '.wma': 'audio/x-ms-wma',
+        '.weba': 'audio/webm',
+        # Video formats
+        '.mp4': 'video/mp4',
+        '.webm': 'video/webm',
+        '.mov': 'video/quicktime',
+        '.avi': 'video/x-msvideo',
+        '.mkv': 'video/x-matroska',
+        '.wmv': 'video/x-ms-wmv',
+        '.flv': 'video/x-flv',
+        # Image formats
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.bmp': 'image/bmp',
+        # Document formats
+        '.pdf': 'application/pdf',
+    }
+
+    return mime_map.get(ext, 'application/octet-stream')
 
 SYSTEM_INSTRUCTION = """You are a helpful assistant for students. Transcribe the given audio/video/image files into a comprehensive structured note.
 
@@ -133,7 +198,11 @@ async def process_files_with_gemini(file_paths: List[str]) -> Dict[str, str]:
         for i, file_path in enumerate(file_paths, 1):
             print(f"[GEMINI]   Uploading file {i}/{len(file_paths)}: {file_path}")
             try:
-                uploaded_file = genai.upload_file(path=file_path)
+                # Get MIME type for the file
+                mime_type = get_mime_type(file_path)
+                print(f"[GEMINI]   Detected MIME type: {mime_type}")
+
+                uploaded_file = genai.upload_file(path=file_path, mime_type=mime_type)
                 uploaded_files.append(uploaded_file)
                 print(f"[GEMINI]   ✓ File {i} uploaded: {uploaded_file.name}")
             except Exception as upload_error:
