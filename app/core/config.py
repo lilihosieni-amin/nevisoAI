@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     # SMS
     SMS_API_KEY: str = "mock-sms-api-key"
 
+    # Email (for OTP)
+    SMTP_SERVER: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = "lilihosieni2003@gmail.com"
+    SMTP_PASSWORD: str = "xlis gfpq vcfp yrhm"
+
     # ZarinPal Payment Gateway
     ZARINPAL_MERCHANT_ID: str
     ZARINPAL_CALLBACK_URL: str

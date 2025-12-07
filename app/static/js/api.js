@@ -54,10 +54,23 @@ const authAPI = {
     },
 
     verifyOTP(phone_number, otp_code) {
-        // **تغییر اصلی**: دیگر نیازی به دریافت توکن و ذخیره آن نیست
         return apiRequest('/auth/verify-otp', {
             method: 'POST',
             body: JSON.stringify({ phone_number, otp_code }),
+        });
+    },
+
+    requestEmailOTP(email) {
+        return apiRequest('/auth/request-email-otp', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        });
+    },
+
+    verifyEmailOTP(email, otp_code) {
+        return apiRequest('/auth/verify-email-otp', {
+            method: 'POST',
+            body: JSON.stringify({ email, otp_code }),
         });
     },
 

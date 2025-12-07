@@ -28,7 +28,7 @@
 
         .auth-header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 32px;
         }
 
         .auth-logo {
@@ -41,6 +41,35 @@
         .auth-subtitle {
             color: var(--text-secondary);
             font-size: 16px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 12px;
+            border: var(--border-width) solid var(--border-color);
+            border-radius: var(--radius);
+            background: transparent;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: var(--text-primary);
+        }
+
+        .auth-tab.active {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+        }
+
+        .auth-tab:not(.active):hover {
+            background: var(--bg-secondary);
         }
 
         .auth-form {
@@ -65,6 +94,14 @@
             display: block;
         }
 
+        .auth-method {
+            display: none;
+        }
+
+        .auth-method.active {
+            display: block;
+        }
+
         @media (max-width: 640px) {
             .auth-card {
                 padding: 32px 24px;
@@ -83,25 +120,57 @@
                 <p class="auth-subtitle">به پلتفرم تبدیل گفتار به نوشتار خوش آمدید</p>
             </div>
 
-            <!-- Step 1: Phone Number -->
-            <form class="auth-form otp-step active" id="phone-form">
-                <div class="form-group">
-                    <label class="form-label">شماره موبایل</label>
-                    <input type="tel" id="phone-input" class="form-input" placeholder="09123456789" required>
-                </div>
-                <button type="submit" class="button-primary" style="width: 100%;">دریافت کد تایید</button>
-            </form>
+            <!-- Auth Method Tabs -->
+            <div class="auth-tabs" id="auth-tabs">
+                <button type="button" class="auth-tab active" data-method="phone">موبایل</button>
+                <button type="button" class="auth-tab" data-method="email">ایمیل</button>
+            </div>
 
-            <!-- Step 2: OTP Verification -->
-            <form class="auth-form otp-step" id="otp-form">
-                <div class="form-group">
-                    <label class="form-label">کد تایید</label>
-                    <input type="text" id="otp-input" class="form-input" placeholder="کد 6 رقمی" maxlength="6" required>
-                    <p class="form-help" style="margin-top: 8px;">کد تایید به شماره <span id="phone-display"></span> ارسال شد</p>
-                </div>
-                <button type="submit" class="button-secondary" style="width: 100%; margin-bottom: 5px;">ورود</button>
-                <button type="button" id="back-btn" class="button-secondary" style="width: 100%;">بازگشت</button>
-            </form>
+            <!-- Phone Method -->
+            <div class="auth-method active" id="phone-method">
+                <!-- Step 1: Phone Number -->
+                <form class="auth-form otp-step active" id="phone-form">
+                    <div class="form-group">
+                        <label class="form-label">شماره موبایل</label>
+                        <input type="tel" id="phone-input" class="form-input" placeholder="09123456789" required>
+                    </div>
+                    <button type="submit" class="button-primary" style="width: 100%;">دریافت کد تایید</button>
+                </form>
+
+                <!-- Step 2: OTP Verification -->
+                <form class="auth-form otp-step" id="phone-otp-form">
+                    <div class="form-group">
+                        <label class="form-label">کد تایید</label>
+                        <input type="text" id="phone-otp-input" class="form-input" placeholder="کد 6 رقمی" maxlength="6" required>
+                        <p class="form-help" style="margin-top: 8px;">کد تایید به شماره <span id="phone-display"></span> ارسال شد</p>
+                    </div>
+                    <button type="submit" class="button-primary" style="width: 100%; margin-bottom: 8px;">ورود</button>
+                    <button type="button" class="phone-back-btn button-secondary" style="width: 100%;">بازگشت</button>
+                </form>
+            </div>
+
+            <!-- Email Method -->
+            <div class="auth-method" id="email-method">
+                <!-- Step 1: Email -->
+                <form class="auth-form otp-step active" id="email-form">
+                    <div class="form-group">
+                        <label class="form-label">ایمیل</label>
+                        <input type="email" id="email-input" class="form-input" placeholder="example@gmail.com" required>
+                    </div>
+                    <button type="submit" class="button-primary" style="width: 100%;">دریافت کد تایید</button>
+                </form>
+
+                <!-- Step 2: OTP Verification -->
+                <form class="auth-form otp-step" id="email-otp-form">
+                    <div class="form-group">
+                        <label class="form-label">کد تایید</label>
+                        <input type="text" id="email-otp-input" class="form-input" placeholder="کد 6 رقمی" maxlength="6" required>
+                        <p class="form-help" style="margin-top: 8px;">کد تایید به ایمیل <span id="email-display"></span> ارسال شد</p>
+                    </div>
+                    <button type="submit" class="button-primary" style="width: 100%; margin-bottom: 8px;">ورود</button>
+                    <button type="button" class="email-back-btn button-secondary" style="width: 100%;">بازگشت</button>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -111,16 +180,36 @@
         document.addEventListener('DOMContentLoaded', function() {
             setupThemeSwitcher();
 
+            // Tab switching
+            const tabs = document.querySelectorAll('.auth-tab');
+            const phoneMthod = document.getElementById('phone-method');
+            const emailMethod = document.getElementById('email-method');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+
+                    if (this.dataset.method === 'phone') {
+                        phoneMthod.classList.add('active');
+                        emailMethod.classList.remove('active');
+                    } else {
+                        emailMethod.classList.add('active');
+                        phoneMthod.classList.remove('active');
+                    }
+                });
+            });
+
+            // ============ PHONE AUTH ============
             const phoneForm = document.getElementById('phone-form');
-            const otpForm = document.getElementById('otp-form');
+            const phoneOtpForm = document.getElementById('phone-otp-form');
             const phoneInput = document.getElementById('phone-input');
-            const otpInput = document.getElementById('otp-input');
+            const phoneOtpInput = document.getElementById('phone-otp-input');
             const phoneDisplay = document.getElementById('phone-display');
-            const backBtn = document.getElementById('back-btn');
+            const phoneBackBtn = document.querySelector('.phone-back-btn');
 
             let phoneNumber = '';
 
-            // Step 1: Request OTP
             phoneForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 phoneNumber = phoneInput.value.trim();
@@ -137,14 +226,13 @@
 
                     await authAPI.requestOTP(phoneNumber);
 
-                    // Show OTP form
                     phoneForm.classList.remove('active');
-                    otpForm.classList.add('active');
+                    phoneOtpForm.classList.add('active');
                     phoneDisplay.textContent = phoneNumber;
+                    document.getElementById('auth-tabs').style.display = 'none';
                     showToast('کد تایید ارسال شد', 'success');
 
-                    // Focus on OTP input
-                    setTimeout(() => otpInput.focus(), 100);
+                    setTimeout(() => phoneOtpInput.focus(), 100);
 
                 } catch (error) {
                     showToast(error.message || 'خطا در ارسال کد تایید', 'error');
@@ -155,10 +243,9 @@
                 }
             });
 
-            // Step 2: Verify OTP
-            otpForm.addEventListener('submit', async function(e) {
+            phoneOtpForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
-                const otpCode = otpInput.value.trim();
+                const otpCode = phoneOtpInput.value.trim();
 
                 if (!otpCode || otpCode.length !== 6) {
                     showToast('لطفا کد 6 رقمی را وارد کنید', 'error');
@@ -166,11 +253,11 @@
                 }
 
                 try {
-                    const btn = otpForm.querySelector('button[type="submit"]');
+                    const btn = phoneOtpForm.querySelector('button[type="submit"]');
                     btn.disabled = true;
                     btn.textContent = 'در حال ورود...';
 
-                    const response = await authAPI.verifyOTP(phoneNumber, otpCode);
+                    await authAPI.verifyOTP(phoneNumber, otpCode);
 
                     showToast('ورود موفقیت‌آمیز', 'success');
                     setTimeout(() => {
@@ -180,17 +267,97 @@
                 } catch (error) {
                     showToast(error.message || 'کد تایید نامعتبر است', 'error');
                 } finally {
-                    const btn = otpForm.querySelector('button[type="submit"]');
+                    const btn = phoneOtpForm.querySelector('button[type="submit"]');
                     btn.disabled = false;
                     btn.textContent = 'ورود';
                 }
             });
 
-            // Back button
-            backBtn.addEventListener('click', function() {
-                otpForm.classList.remove('active');
+            phoneBackBtn.addEventListener('click', function() {
+                phoneOtpForm.classList.remove('active');
                 phoneForm.classList.add('active');
-                otpInput.value = '';
+                phoneOtpInput.value = '';
+                document.getElementById('auth-tabs').style.display = 'flex';
+            });
+
+            // ============ EMAIL AUTH ============
+            const emailForm = document.getElementById('email-form');
+            const emailOtpForm = document.getElementById('email-otp-form');
+            const emailInput = document.getElementById('email-input');
+            const emailOtpInput = document.getElementById('email-otp-input');
+            const emailDisplay = document.getElementById('email-display');
+            const emailBackBtn = document.querySelector('.email-back-btn');
+
+            let userEmail = '';
+
+            emailForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                userEmail = emailInput.value.trim();
+
+                if (!userEmail) {
+                    showToast('لطفا ایمیل را وارد کنید', 'error');
+                    return;
+                }
+
+                try {
+                    const btn = emailForm.querySelector('button[type="submit"]');
+                    btn.disabled = true;
+                    btn.textContent = 'در حال ارسال...';
+
+                    await authAPI.requestEmailOTP(userEmail);
+
+                    emailForm.classList.remove('active');
+                    emailOtpForm.classList.add('active');
+                    emailDisplay.textContent = userEmail;
+                    document.getElementById('auth-tabs').style.display = 'none';
+                    showToast('کد تایید به ایمیل ارسال شد', 'success');
+
+                    setTimeout(() => emailOtpInput.focus(), 100);
+
+                } catch (error) {
+                    showToast(error.message || 'خطا در ارسال کد تایید', 'error');
+                } finally {
+                    const btn = emailForm.querySelector('button[type="submit"]');
+                    btn.disabled = false;
+                    btn.textContent = 'دریافت کد تایید';
+                }
+            });
+
+            emailOtpForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const otpCode = emailOtpInput.value.trim();
+
+                if (!otpCode || otpCode.length !== 6) {
+                    showToast('لطفا کد 6 رقمی را وارد کنید', 'error');
+                    return;
+                }
+
+                try {
+                    const btn = emailOtpForm.querySelector('button[type="submit"]');
+                    btn.disabled = true;
+                    btn.textContent = 'در حال ورود...';
+
+                    await authAPI.verifyEmailOTP(userEmail, otpCode);
+
+                    showToast('ورود موفقیت‌آمیز', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/notebooks';
+                    }, 500);
+
+                } catch (error) {
+                    showToast(error.message || 'کد تایید نامعتبر است', 'error');
+                } finally {
+                    const btn = emailOtpForm.querySelector('button[type="submit"]');
+                    btn.disabled = false;
+                    btn.textContent = 'ورود';
+                }
+            });
+
+            emailBackBtn.addEventListener('click', function() {
+                emailOtpForm.classList.remove('active');
+                emailForm.classList.add('active');
+                emailOtpInput.value = '';
+                document.getElementById('auth-tabs').style.display = 'flex';
             });
         });
     </script>
