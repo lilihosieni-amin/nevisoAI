@@ -4,6 +4,7 @@ sqlalchemy[asyncio]==2.0.23
 alembic==1.12.1
 asyncmy==0.2.9
 pymysql==1.1.0
+cryptography>=41.0.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 celery==5.3.4
