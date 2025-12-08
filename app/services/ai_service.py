@@ -268,31 +268,38 @@ async def process_files_with_gemini(file_paths: List[str]) -> Dict[str, str]:
             # Send files and prompt to model with increased output limit
             content_parts = [prompt] + uploaded_files
 
-            # Configure generation with higher token limit
+            # Configure generation with higher token limit and timeout
             generation_config = {
                 "max_output_tokens": 100000,
                 "temperature": 0.4,
                 "top_p": 0.95,
             }
 
+            # Set request timeout to 15 minutes for long files
+            request_options = {
+                "timeout": 900  # 15 minutes in seconds
+            }
+
             response = model.generate_content(
                 content_parts,
-                generation_config=generation_config
+                generation_config=generation_config,
+                request_options=request_options
             )
 
             print("[GEMINI]   ✓ Content generation completed")
         except Exception as gen_error:
             error_str = str(gen_error).lower()
+            error_type = type(gen_error).__name__
             print(f"[GEMINI]   ✗ Content generation failed: {str(gen_error)}")
-            print(f"[GEMINI]   Error details: {type(gen_error).__name__}")
+            print(f"[GEMINI]   Error details: {error_type}")
 
-            # Classify generation errors
-            if "quota" in error_str or "limit" in error_str or "exceeded" in error_str:
+            # Classify generation errors - check type first, then message
+            if "DeadlineExceeded" in error_type or "deadline" in error_str or "timeout" in error_str:
+                raise ProcessingTimeoutError()
+            elif "quota" in error_str or ("limit" in error_str and "rate" in error_str):
                 raise QuotaExceededError()
             elif "network" in error_str or "connection" in error_str:
                 raise NetworkError()
-            elif "timeout" in error_str:
-                raise ProcessingTimeoutError()
             else:
                 raise ContentGenerationError(f"خطا در تولید محتوا: {str(gen_error)}")
 
