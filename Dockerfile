@@ -22,7 +22,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install runtime dependencies for WeasyPrint and other libraries
+# Install runtime dependencies for WeasyPrint, ffmpeg and other libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-noto \
     fonts-noto-cjk \
     curl \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
