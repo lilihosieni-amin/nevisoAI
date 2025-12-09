@@ -3,7 +3,9 @@ import time
 import json
 import mimetypes
 import os
-from typing import Dict, List
+import subprocess
+import tempfile
+from typing import Dict, List, Optional, Tuple
 from app.core.config import settings
 from app.services.exceptions import (
     QuotaExceededError,
@@ -80,6 +82,109 @@ def get_mime_type(file_path: str) -> str:
     }
 
     return mime_map.get(ext, 'application/octet-stream')
+
+
+def compress_audio_file(file_path: str, target_bitrate: str = "48k") -> Tuple[str, bool]:
+    """
+    Compress an audio file using ffmpeg to reduce size before upload.
+
+    Uses opus codec with low bitrate optimized for speech recognition.
+    Only compresses audio files; returns original path for non-audio files.
+
+    Args:
+        file_path: Path to the original file
+        target_bitrate: Target bitrate for compression (default: 48k for speech)
+
+    Returns:
+        Tuple of (path_to_use, is_temporary) - if is_temporary=True, caller should delete after use
+    """
+    mime_type = get_mime_type(file_path)
+
+    # Only compress audio files, not video or images
+    if not mime_type.startswith('audio/'):
+        print(f"[COMPRESS] Skipping non-audio file: {file_path} (type: {mime_type})")
+        return file_path, False
+
+    # Get original file size
+    original_size = os.path.getsize(file_path)
+    original_size_mb = original_size / (1024 * 1024)
+    print(f"[COMPRESS] Original audio file: {file_path}")
+    print(f"[COMPRESS] Original size: {original_size_mb:.2f} MB")
+
+    # Skip compression for small files (< 1 MB)
+    if original_size < 1 * 1024 * 1024:
+        print(f"[COMPRESS] File is small ({original_size_mb:.2f} MB), skipping compression")
+        return file_path, False
+
+    try:
+        # Create temporary file for compressed output
+        # Use .ogg extension for opus codec
+        temp_fd, temp_path = tempfile.mkstemp(suffix='.ogg')
+        os.close(temp_fd)
+
+        # ffmpeg command for audio compression
+        # -y: overwrite output
+        # -i: input file
+        # -vn: no video (strip video if present)
+        # -ac 1: mono channel (good for speech, half the data)
+        # -ar 16000: 16kHz sample rate (good for speech recognition)
+        # -c:a libopus: use opus codec (best quality/size ratio)
+        # -b:a: target bitrate
+        cmd = [
+            'ffmpeg',
+            '-y',
+            '-i', file_path,
+            '-vn',
+            '-ac', '1',
+            '-ar', '16000',
+            '-c:a', 'libopus',
+            '-b:a', target_bitrate,
+            temp_path
+        ]
+
+        print(f"[COMPRESS] Running ffmpeg compression...")
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout
+        )
+
+        if result.returncode != 0:
+            print(f"[COMPRESS] ffmpeg failed: {result.stderr}")
+            # Clean up temp file on failure
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            return file_path, False
+
+        # Check compressed size
+        compressed_size = os.path.getsize(temp_path)
+        compressed_size_mb = compressed_size / (1024 * 1024)
+        reduction = (1 - compressed_size / original_size) * 100
+
+        print(f"[COMPRESS] Compressed size: {compressed_size_mb:.2f} MB")
+        print(f"[COMPRESS] Size reduction: {reduction:.1f}%")
+
+        # Only use compressed file if it's actually smaller
+        if compressed_size >= original_size:
+            print(f"[COMPRESS] Compressed file not smaller, using original")
+            os.remove(temp_path)
+            return file_path, False
+
+        print(f"[COMPRESS] ✓ Using compressed file: {temp_path}")
+        return temp_path, True
+
+    except subprocess.TimeoutExpired:
+        print(f"[COMPRESS] ffmpeg timed out, using original file")
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return file_path, False
+    except Exception as e:
+        print(f"[COMPRESS] Compression error: {str(e)}, using original file")
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.remove(temp_path)
+        return file_path, False
+
 
 SYSTEM_INSTRUCTION = """You are a helpful assistant for students. Transcribe the given audio/video/image files into a comprehensive structured note.
 
@@ -191,37 +296,63 @@ async def process_files_with_gemini(file_paths: List[str]) -> Dict[str, str]:
             print(f"[GEMINI] File {i}: {path}")
         print("=" * 80)
 
-        print("[GEMINI] Step 1/4: Uploading files to Gemini...")
+        print("[GEMINI] Step 1/5: Compressing audio files...")
+
+        # Compress audio files before upload to reduce size and upload time
+        files_to_upload = []  # List of (path, is_temporary) tuples
+        temp_files_to_cleanup = []  # Track temp files for cleanup
+
+        for i, file_path in enumerate(file_paths, 1):
+            print(f"[GEMINI]   Processing file {i}/{len(file_paths)} for compression: {file_path}")
+            compressed_path, is_temp = compress_audio_file(file_path)
+            files_to_upload.append((compressed_path, is_temp))
+            if is_temp:
+                temp_files_to_cleanup.append(compressed_path)
+
+        print(f"[GEMINI] Step 2/5: Uploading {len(files_to_upload)} file(s) to Gemini...")
 
         # Upload files to Gemini File API
         uploaded_files = []
-        for i, file_path in enumerate(file_paths, 1):
-            print(f"[GEMINI]   Uploading file {i}/{len(file_paths)}: {file_path}")
-            try:
-                # Get MIME type for the file
-                mime_type = get_mime_type(file_path)
-                print(f"[GEMINI]   Detected MIME type: {mime_type}")
+        try:
+            for i, (file_path_to_upload, is_temp) in enumerate(files_to_upload, 1):
+                original_path = file_paths[i-1]
+                print(f"[GEMINI]   Uploading file {i}/{len(files_to_upload)}: {file_path_to_upload}")
+                if is_temp:
+                    print(f"[GEMINI]   (compressed from: {original_path})")
+                try:
+                    # Get MIME type for the file
+                    mime_type = get_mime_type(file_path_to_upload)
+                    print(f"[GEMINI]   Detected MIME type: {mime_type}")
 
-                uploaded_file = genai.upload_file(path=file_path, mime_type=mime_type)
-                uploaded_files.append(uploaded_file)
-                print(f"[GEMINI]   ✓ File {i} uploaded: {uploaded_file.name}")
-            except Exception as upload_error:
-                error_str = str(upload_error).lower()
-                print(f"[GEMINI]   ✗ Failed to upload file {i}: {str(upload_error)}")
+                    uploaded_file = genai.upload_file(path=file_path_to_upload, mime_type=mime_type)
+                    uploaded_files.append(uploaded_file)
+                    print(f"[GEMINI]   ✓ File {i} uploaded: {uploaded_file.name}")
+                except Exception as upload_error:
+                    error_str = str(upload_error).lower()
+                    print(f"[GEMINI]   ✗ Failed to upload file {i}: {str(upload_error)}")
 
-                # Classify the error
-                if "quota" in error_str or "limit" in error_str or "exceeded" in error_str:
-                    raise QuotaExceededError()
-                elif "invalid" in error_str or "format" in error_str or "unsupported" in error_str:
-                    raise InvalidFormatError()
-                elif "network" in error_str or "connection" in error_str or "timeout" in error_str:
-                    raise NetworkError()
-                elif "too large" in error_str or "size" in error_str:
-                    raise FileTooLargeError()
-                else:
-                    raise UnknownAIError(f"خطا در آپلود فایل: {str(upload_error)}")
+                    # Classify the error
+                    if "quota" in error_str or "limit" in error_str or "exceeded" in error_str:
+                        raise QuotaExceededError()
+                    elif "invalid" in error_str or "format" in error_str or "unsupported" in error_str:
+                        raise InvalidFormatError()
+                    elif "network" in error_str or "connection" in error_str or "timeout" in error_str:
+                        raise NetworkError()
+                    elif "too large" in error_str or "size" in error_str:
+                        raise FileTooLargeError()
+                    else:
+                        raise UnknownAIError(f"خطا در آپلود فایل: {str(upload_error)}")
+        finally:
+            # Cleanup temporary compressed files after upload (success or failure)
+            for temp_file in temp_files_to_cleanup:
+                try:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                        print(f"[GEMINI]   Cleaned up temp file: {temp_file}")
+                except Exception as cleanup_error:
+                    print(f"[GEMINI]   Warning: Failed to cleanup temp file {temp_file}: {cleanup_error}")
 
-        print(f"[GEMINI] Step 2/4: Waiting for file processing (max 30s)...")
+        print(f"[GEMINI] Step 3/5: Waiting for file processing (max 30s)...")
 
         # Wait for files to be processed
         max_wait = 30  # seconds
@@ -242,7 +373,7 @@ async def process_files_with_gemini(file_paths: List[str]) -> Dict[str, str]:
 
             print(f"[GEMINI]   ✓ File {i} ready: {uploaded_file.state.name}")
 
-        print("[GEMINI] Step 3/4: Initializing Gemini model...")
+        print("[GEMINI] Step 4/5: Initializing Gemini model...")
 
         # Initialize model with system instruction
         try:
@@ -261,7 +392,7 @@ async def process_files_with_gemini(file_paths: List[str]) -> Dict[str, str]:
         else:
             prompt = "Please analyze this file and create a structured note."
 
-        print(f"[GEMINI] Step 4/4: Generating content from {len(uploaded_files)} file(s)...")
+        print(f"[GEMINI] Step 5/5: Generating content from {len(uploaded_files)} file(s)...")
         print(f"[GEMINI]   Using prompt: {prompt[:100]}...")
 
         try:

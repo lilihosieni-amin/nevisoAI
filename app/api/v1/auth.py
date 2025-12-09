@@ -21,9 +21,16 @@ async def request_otp(
     """
     try:
         user = await user_crud.get_user_by_phone(db, request.phone_number)
+        is_new_user = False
         if not user:
             from app.schemas.user import UserCreate
+            print(f"[AUTH] Creating new user with phone: {request.phone_number}")
             user = await user_crud.create_user(db, UserCreate(phone_number=request.phone_number))
+            is_new_user = True
+            print(f"[AUTH] User created with ID: {user.id}, now granting welcome credit")
+            # Grant welcome credit to new user
+            result = await user_crud.grant_welcome_credit(db, user.id)
+            print(f"[AUTH] grant_welcome_credit returned: {result}")
 
         otp_code = generate_otp()
         expires_at = datetime.utcnow() + timedelta(minutes=5)
@@ -90,8 +97,17 @@ async def request_email_otp(
     """
     try:
         user = await user_crud.get_user_by_email(db, request.email)
+        is_new_user = False
         if not user:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"[AUTH] Creating new user with email: {request.email}")
             user = await user_crud.create_user_by_email(db, request.email)
+            is_new_user = True
+            logger.info(f"[AUTH] User created with ID: {user.id}, now granting welcome credit")
+            # Grant welcome credit to new user
+            result = await user_crud.grant_welcome_credit(db, user.id)
+            logger.info(f"[AUTH] grant_welcome_credit returned: {result}")
 
         otp_code = generate_otp()
         expires_at = datetime.utcnow() + timedelta(minutes=5)
