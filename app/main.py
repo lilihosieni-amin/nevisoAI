@@ -9,7 +9,8 @@ from app.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import routers
-from app.api.v1 import auth, plans, payments, notebooks, notes, export, users, notifications, credits, chat
+# تغییر مهم: استفاده از payments_new به عنوان payments
+from app.api.v1 import auth, plans, payments_new as payments, notebooks, notes, export, users, notifications, credits, chat
 
 app = FastAPI(title=settings.APP_NAME)
 

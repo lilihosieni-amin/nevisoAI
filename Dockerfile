@@ -6,7 +6,12 @@ WORKDIR /app
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    libssl-dev \
     libffi-dev \
+    python3-dev \
+    default-libmysqlclient-dev \
+    pkg-config \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PyTorch CPU-only first (to avoid large CUDA dependencies)

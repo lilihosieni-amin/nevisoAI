@@ -1,0 +1,13 @@
+certbot/
+nginx/
+mysql_data/
+redis_data/
+uploads/
+chroma_db/
+.git/
+__pycache__/
+*.pyc
+.env
+.env.production
+venv/
+celerybeat-schedule
